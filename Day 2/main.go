@@ -3,10 +3,14 @@ package main
 import (
 	"latihan/config"
 	"latihan/controllers"
+	"latihan/middlewares"
+	"latihan/routes"
 	"log"
+	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
@@ -18,16 +22,22 @@ func main() {
 	config.ConnectDataBase()
 
 	e := echo.New()
-	e.GET("/books", controllers.GetBooks)
-	e.GET("/books/:id", controllers.GetBook)
-	e.POST("/books", controllers.CreateBook)
-	e.PUT("/books/:id", controllers.UpdateBook)
-	e.DELETE("/books/:id", controllers.DeleteBook)
 
-	e.GET("/users", controllers.GetUsers)
-	e.GET("/users/:id", controllers.GetUser)
-	e.POST("/users", controllers.CreateUser)
-	e.PUT("/users/:id", controllers.UpdateUser)
-	e.DELETE("/users/:id", controllers.DeleteUser)
-	e.Start(":8080")
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method}, uri=${uri}, status=${status}\n",
+	}))
+
+	r := e.Group("/api")
+
+	// Configure middleware with the custom claims type
+	config := middleware.JWTConfig{
+		Claims:     &middlewares.JWTClaim{},
+		SigningKey: []byte(os.Getenv("SECRETKEY")),
+	}
+
+	r.Use(middleware.JWTWithConfig(config))
+	r.GET("user-data", controllers.UserLogin)
+
+	routes.Routes(e)
+	e.Logger.Fatal(e.Start(":8080"))
 }
